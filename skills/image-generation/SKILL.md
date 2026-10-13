@@ -26,6 +26,26 @@ Override when cost or character matters:
 If a call fails with a model error, run `list_image_models` — it reports which
 models this API key can actually see — and retry with an available one.
 
+### When the server runs on OpenRouter
+
+The tool output says `Model used: … (via OpenRouter)` and `list_image_models`
+starts with "Image models via OpenRouter". Then:
+
+- `"auto"` picks the **newest gpt-image** on OpenRouter (e.g.
+  `openai/gpt-image-2.5-sunburst`); `list_image_models` shows the current default.
+- Any OpenRouter *image* model works: `google/gemini-3-pro-image`,
+  `black-forest-labs/flux.2-pro`, … Bare ids like `gpt-image-2` are mapped to
+  `openai/…`. Non-image models are refused with suggestions.
+- To pick a model, call `list_image_models` with `search` (e.g. `"flux"`) and/or
+  `editable: true` (only models that accept input images) instead of reading
+  all ~60 entries.
+- Size via `aspect_ratio` (`"16:9"`) and `resolution` (`"2K"`) where the model
+  lists them; a `WIDTHxHEIGHT` size is converted to the nearest ratio.
+  `quality` additionally knows `xhigh`/`max` on gpt-image-2.5.
+- **No mask / inpainting.** `edit_image` sends the inputs as references; describe
+  the region to change in the prompt. Unsupported params are dropped and
+  reported as `Adjusted: …` lines — read them.
+
 ## The two-pass workflow
 
 Generation is billed per image and high quality is several times the price of

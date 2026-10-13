@@ -45,3 +45,14 @@ export function loadKeyFiles() {
     }
   }
 }
+
+/**
+ * Which backend to talk to. IMAGE_PROVIDER=openrouter|openai wins; without it,
+ * a lone OPENROUTER_API_KEY (no OPENAI_API_KEY) selects OpenRouter.
+ */
+export function provider() {
+  loadKeyFiles();
+  const p = process.env.IMAGE_PROVIDER?.trim().toLowerCase();
+  if (p) return p === "openrouter" ? "openrouter" : "openai";
+  return !process.env.OPENAI_API_KEY && process.env.OPENROUTER_API_KEY ? "openrouter" : "openai";
+}

@@ -1,18 +1,19 @@
 import { readFile } from "node:fs/promises";
 import { basename, extname } from "node:path";
-import { isDallE } from "./models.js";
+import { isDallE, FALLBACK_CHAIN } from "./models.js";
 import { loadKeyFiles, KEY_FILE } from "./config.js";
 
 loadKeyFiles();
 
 const API_BASE = process.env.OPENAI_BASE_URL?.replace(/\/+$/, "") || "https://api.openai.com/v1";
 
-/** Thrown for any non-2xx from OpenAI. Carries enough for the caller to decide on a fallback. */
+/** Thrown for any non-2xx from the image API. Carries enough for the caller to decide on a fallback. */
 export class OpenAIError extends Error {
-  constructor(status, body) {
+  constructor(status, body, provider = "OpenAI") {
     const err = body?.error || {};
-    super(err.message || `OpenAI request failed with HTTP ${status}`);
+    super(err.message || `${provider} request failed with HTTP ${status}`);
     this.name = "OpenAIError";
+    this.provider = provider;
     this.status = status;
     this.code = err.code || null;
     this.type = err.type || null;
@@ -21,7 +22,8 @@ export class OpenAIError extends Error {
 
   /** True when the failure is "this key can't use this model", so trying a lesser model makes sense. */
   get isModelUnavailable() {
-    if (this.status === 404 && (this.code === "model_not_found" || !this.code)) return true;
+    // OpenRouter puts the numeric HTTP status into `code`.
+    if (this.status === 404 && (this.code === "model_not_found" || !this.code || typeof this.code === "number")) return true;
     if (this.status === 403 && /model|verif/i.test(this.message)) return true;
     return this.code === "model_not_found";
   }
@@ -84,7 +86,8 @@ function normalizeParams(model, params) {
     out.response_format = "b64_json";
     if (model === "dall-e-3") out.n = 1;
   } else {
-    put("quality", params.quality);
+    // xhigh/max only exist on OpenRouter's gpt-image-2.5; high is the closest OpenAI tier.
+    put("quality", ["xhigh", "max"].includes(params.quality) ? "high" : params.quality);
     put("background", params.background);
     put("output_format", params.output_format);
     put("output_compression", params.output_compression);
@@ -128,6 +131,17 @@ export async function edit(model, params) {
   if (params.mask) form.append("mask", await fileField(params.mask));
 
   return request("/images/edits", { form });
+}
+
+/** OpenAI ids pass through unchanged; the API itself reports unknown models. */
+export async function resolveModel(id) {
+  return id;
+}
+
+/** Models tried in order for model "auto". IMAGE_DEFAULT_MODEL jumps the queue. */
+export async function defaultChain() {
+  const pref = process.env.IMAGE_DEFAULT_MODEL?.trim();
+  return pref ? [pref, ...FALLBACK_CHAIN.filter((m) => m !== pref)] : FALLBACK_CHAIN;
 }
 
 /** Model ids the current API key can actually see, image models first. */

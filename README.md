@@ -146,6 +146,28 @@ if you want a different global default.
 | `OPENAI_API_KEY` | Required. Falls back to `~/.config/image-generator-mcp/.env`. |
 | `IMAGE_OUTPUT_DIR` | Default save directory. Defaults to `~/Pictures/claude-images`. |
 | `OPENAI_BASE_URL` | Point at a proxy or compatible endpoint. Defaults to `https://api.openai.com/v1`. |
+| `IMAGE_PROVIDER` | `openai` (default) or `openrouter`. Without it, a lone `OPENROUTER_API_KEY` selects OpenRouter. |
+| `OPENROUTER_API_KEY` | Key for `IMAGE_PROVIDER=openrouter`. Also read from the `.env` file. |
+| `OPENROUTER_BASE_URL` | Defaults to `https://openrouter.ai/api/v1`. |
+| `IMAGE_DEFAULT_MODEL` | Model used for `"auto"` before the fallback chain, e.g. `openai/gpt-image-2.5-flare`. |
+
+### OpenRouter
+
+```
+IMAGE_PROVIDER=openrouter
+OPENROUTER_API_KEY=sk-or-...
+```
+
+- `model: "auto"` uses the newest `openai/gpt-image-*` on OpenRouter (highest
+  version, full model before `-mini`, then release date), read live from
+  `GET /images/models`.
+- Only image-output models are accepted. Bare ids (`gpt-image-2`) and unique
+  suffixes (`flux.2-pro`) are resolved to full OpenRouter ids.
+- `list_image_models` takes `search` and `editable` to narrow the ~60 models.
+- Params are filtered per model by its `supported_parameters`; `WIDTHxHEIGHT`
+  becomes the nearest `aspect_ratio` (+ `resolution` where offered). Every change
+  is reported in the tool result as `Adjusted: …`.
+- No mask/inpainting: OpenRouter's `/images` takes reference images only.
 
 ## Model guidance
 
